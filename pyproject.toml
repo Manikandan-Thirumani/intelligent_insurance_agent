@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "intelligent-insurance-agent"
+version = "0.1.0"
+description = "Starter project for an intelligent insurance assistant"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.scripts]
+insurance-agent = "intelligent_insurance_agent.agent:main"
+insurance-api = "intelligent_insurance_agent.api:main"
+insurance-rag = "intelligent_insurance_agent.main:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.setuptools.packages.find]
+where = ["src"]

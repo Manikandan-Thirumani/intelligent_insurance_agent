@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Insurance Chatbot</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f5f7fb; color: #20232a; margin: 0; padding: 0; }
+    .container { max-width: 760px; margin: 0 auto; padding: 24px; }
+    h1 { margin-bottom: 8px; }
+    .chat-box { border: 1px solid #dfe3ea; border-radius: 12px; padding: 16px; background: #fff; min-height: 320px; }
+    .message { margin-bottom: 16px; }
+    .message.user { text-align: right; }
+    .message .bubble { display: inline-block; padding: 12px 16px; border-radius: 18px; max-width: 85%; }
+    .message.user .bubble { background: #4f46e5; color: white; }
+    .message.assistant .bubble { background: #e5e7eb; color: #111827; }
+    .controls { margin-top: 16px; display: grid; gap: 12px; }
+    textarea { width: 100%; min-height: 80px; padding: 12px; border: 1px solid #d1d5db; border-radius: 10px; resize: vertical; }
+    button { padding: 12px 18px; border: none; border-radius: 10px; background: #4f46e5; color: white; cursor: pointer; }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+    .upload-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .upload-row input[type=file] { flex: 1; }
+    .status { margin-top: 8px; color: #334155; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Insurance Chatbot</h1>
+    <p>Upload a document and ask questions. The page sends prompts to the backend and receives RAG responses.</p>
+
+    <div class="chat-box" id="chatBox"></div>
+
+    <div class="controls">
+      <div class="upload-row">
+        <input type="file" id="fileInput" />
+        <button id="uploadButton">Upload Document</button>
+      </div>
+      <textarea id="promptInput" placeholder="Ask a question about your insurance documents..."></textarea>
+      <button id="sendButton">Send</button>
+      <div class="status" id="statusText"></div>
+    </div>
+  </div>
+
+  <script>
+    const chatBox = document.getElementById('chatBox');
+    const promptInput = document.getElementById('promptInput');
+    const sendButton = document.getElementById('sendButton');
+    const uploadButton = document.getElementById('uploadButton');
+    const fileInput = document.getElementById('fileInput');
+    const statusText = document.getElementById('statusText');
+
+    function addMessage(role, text) {
+      const wrapper = document.createElement('div');
+      wrapper.className = `message ${role}`;
+      const bubble = document.createElement('div');
+      bubble.className = 'bubble';
+      bubble.textContent = text;
+      wrapper.appendChild(bubble);
+      chatBox.appendChild(wrapper);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    async function sendPrompt() {
+      const prompt = promptInput.value.trim();
+      if (!prompt) return;
+      addMessage('user', prompt);
+      promptInput.value = '';
+      sendButton.disabled = true;
+      statusText.textContent = 'Waiting for response...';
+
+      try {
+        const response = await fetch('/rag-chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt }),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.detail || 'Request failed');
+        addMessage('assistant', data.response);
+      } catch (error) {
+        addMessage('assistant', 'Error: ' + error.message);
+      } finally {
+        sendButton.disabled = false;
+        statusText.textContent = '';
+      }
+    }
+
+    async function uploadDocument() {
+      const file = fileInput.files[0];
+      if (!file) {
+        statusText.textContent = 'Please select a file first.';
+        return;
+      }
+      uploadButton.disabled = true;
+      statusText.textContent = 'Uploading document...';
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      try {
+        const response = await fetch('/upload', {
+          method: 'POST',
+          body: formData,
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.detail || 'Upload failed');
+        statusText.textContent = `Uploaded ${data.filename} (${data.size} bytes).`;
+        addMessage('assistant', `Document uploaded: ${data.filename}`);
+      } catch (error) {
+        statusText.textContent = 'Upload failed.';
+        addMessage('assistant', 'Error uploading document: ' + error.message);
+      } finally {
+        uploadButton.disabled = false;
+      }
+    }
+
+    sendButton.addEventListener('click', sendPrompt);
+    uploadButton.addEventListener('click', uploadDocument);
+    promptInput.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        sendPrompt();
+      }
+    });
+  </script>
+</body>
+</html>
