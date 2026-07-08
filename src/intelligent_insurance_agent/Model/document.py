@@ -20,9 +20,19 @@ class Document:
         if not path.exists():
             return cls(id=path.name, content="", source=str(path))
 
-        try:
-            content = path.read_text(encoding="utf-8")
-        except UnicodeDecodeError:
-            content = path.read_bytes().decode("utf-8", errors="ignore")
+        content = ""
+        if path.suffix.lower() == ".pdf":
+            try:
+                from pypdf import PdfReader
+
+                reader = PdfReader(str(path))
+                content = "\n".join(page.extract_text() or "" for page in reader.pages)
+            except Exception:
+                content = path.read_bytes().decode("utf-8", errors="ignore")
+        else:
+            try:
+                content = path.read_text(encoding="utf-8")
+            except UnicodeDecodeError:
+                content = path.read_bytes().decode("utf-8", errors="ignore")
 
         return cls(id=path.name, content=content, source=str(path))
